@@ -11,6 +11,7 @@
 class Graph {
  public:
   explicit Graph(const std::string& filename, bool is_query = false);
+  // explicit Graph();
   ~Graph();
 
   inline int32_t GetGraphID() const;
@@ -35,6 +36,9 @@ class Graph {
 
   inline bool IsNeighbor(Vertex u, Vertex v) const;
 
+  Graph *BuildDAG() const;
+
+
  private:
   int32_t graph_id_;
 
@@ -49,6 +53,8 @@ class Graph {
 
   std::vector<Label> label_;
   std::vector<Vertex> adj_array_;
+
+  explicit Graph();
 
   Label max_label_;
 };

@@ -12,5 +12,12 @@ void Backtrack::PrintAllMatches(const Graph &data, const Graph &query,
                                 const CandidateSet &cs) {
   std::cout << "t " << query.GetNumVertices() << "\n";
 
-  // implement your code here.
+  // query -> DAG
+  Graph *DAG = query.BuildDAG();
+
+  // root -> backtracking
+    // select minimum candidate set
+    // get intersect of parents
+
+  free(DAG);
 }

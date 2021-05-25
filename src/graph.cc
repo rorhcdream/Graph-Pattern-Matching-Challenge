@@ -4,6 +4,9 @@
  */
 
 #include "graph.h"
+#include <queue>
+#include <set>
+#include <cassert>
 
 namespace {
 std::vector<Label> transferred_label;
@@ -51,6 +54,8 @@ void TransferLabel(const std::string &filename) {
 }
 }  // namespace
 
+Graph::Graph(){}
+
 Graph::Graph(const std::string &filename, bool is_query) {
   if (!is_query) {
     TransferLabel(filename);
@@ -65,7 +70,6 @@ Graph::Graph(const std::string &filename, bool is_query) {
     std::cout << "Graph file " << filename << " not found!\n";
     exit(EXIT_FAILURE);
   }
-
   char type;
 
   fin >> type >> graph_id_ >> num_vertices_;
@@ -162,6 +166,122 @@ Graph::Graph(const std::string &filename, bool is_query) {
     std::copy(adj_list[i].begin(), adj_list[i].end(),
               adj_array_.begin() + start_offset_[i]);
   }
+}
+
+bool isCyclic(Vertex v, std::vector<std::vector<Vertex>> &adj_list){
+  static std::vector<Vertex> visited;
+  if(std::find(visited.begin(), visited.end(), v) != visited.end())
+    return true;
+  visited.push_back(v);
+  for (auto it = adj_list[v].begin(); it != adj_list[v].end(); it++){
+    if(isCyclic(*it, adj_list)) return true;
+  }
+  visited.pop_back();
+  return false;
+}
+
+Graph *Graph::BuildDAG() const {
+  std::vector<std::vector<Vertex>> adj_list(num_vertices_);
+
+  std::set<Vertex> visited;
+  std::queue<Vertex> toVisit;
+  toVisit.push(0);
+  
+  // build adj_list
+  while (!toVisit.empty()) {
+    Vertex v = toVisit.front();
+    toVisit.pop();
+
+    if (visited.find(v) != visited.end())
+      continue;
+    visited.insert(v);
+
+    for (size_t i = GetNeighborStartOffset(v); i < GetNeighborEndOffset(v); i++) {
+      if (visited.find(adj_array_[i]) != visited.end()) 
+        adj_list[adj_array_[i]].push_back(v);
+      else
+        toVisit.push(adj_array_[i]);
+    }
+  }
+
+  // allocate new graph, copy basic values
+  Graph *result = new Graph();
+  result->graph_id_ = -1;
+  result->num_vertices_ = num_vertices_;
+  result->num_edges_ = num_edges_;
+  result->num_labels_ = num_labels_;
+  result->max_label_ = max_label_;
+  result->label_frequency_.resize(max_label_+1);
+  result->label_.resize(num_vertices_);
+  result->start_offset_by_label_.resize(num_vertices_ * (max_label_ + 1));
+  std::copy(label_frequency_.begin(), label_frequency_.end(), result->label_frequency_.begin());
+  std::copy(label_.begin(), label_.end(), result->label_.begin());
+
+  // fill result->adj_array / start_offset / start_offset_by_label
+  size_t count_edges = 0;
+  result->start_offset_.resize(num_vertices_);
+  for (size_t i = 0; i < num_vertices_; i++) {
+    result->start_offset_[i] = result->adj_array_.size();
+
+    // sort by label
+    std::sort(adj_list[i].begin(), adj_list[i].end(), [this](Vertex u, Vertex v) {
+      if (GetLabel(u) != GetLabel(v))
+        return GetLabel(u) < GetLabel(v);
+      else if (GetDegree(u) != GetDegree(v))
+        return GetDegree(u) > GetDegree(v);
+      else
+        return u < v;
+    });
+
+    // push to adj array
+    for (auto it = adj_list[i].begin(); it != adj_list[i].end(); it++) {
+      // assert(std::find(adj_list[*it].begin(), adj_list[*it].end(), i) == adj_list[*it].end() && "Should not have edge with reverse direction");
+      count_edges++;
+      result->adj_array_.push_back(*it);
+    }
+    
+    // fill start_offset_by_label
+    if (!adj_list[i].size()) 
+      continue;
+    Vertex u = adj_list[i][0];
+    Label l = GetLabel(u);
+
+    result->start_offset_by_label_[i * (max_label_ + 1) + l].first = start_offset_[i];
+
+    for (size_t j = 1; j < adj_list[i].size(); ++j) {
+      u = adj_list[i][j];
+      Label next_l = GetLabel(u);
+
+      if (l != next_l) {
+        result->start_offset_by_label_[i * (max_label_ + 1) + l].second =
+            result->start_offset_[i] + j;
+        result->start_offset_by_label_[i * (max_label_ + 1) + next_l].first =
+            result->start_offset_[i] + j;
+        l = next_l;
+      }
+    }
+
+    result->start_offset_by_label_[i * (max_label_ + 1) + l].second =
+        result->start_offset_[i + 1];
+  }  
+
+  // assert(count_edges == num_edges_ && "Some edges are lost");
+  // assert(!isCyclic(0, adj_list) && "DAG is cyclic");
+
+  // for (size_t i = 0; i < num_vertices_; i++) {
+  //   for (size_t l = 0; l <= max_label_; l++) {
+  //     if (result->GetNeighborStartOffset(i, l) == 0)
+  //       continue;
+  //     assert(result->GetNeighborStartOffset(i) <= result->GetNeighborStartOffset(i, l));
+  //     assert(result->GetNeighborEndOffset(i) >= result->GetNeighborEndOffset(i, l));
+
+  //     for (size_t idx = result->GetNeighborStartOffset(i, l); idx < result->GetNeighborEndOffset(i, l); idx++) {
+  //       assert(result->GetLabel(result->adj_array_[idx]) == l);
+  //     }
+  //   }
+  // }
+
+  return result;  
 }
 
 Graph::~Graph() {}
