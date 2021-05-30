@@ -35,6 +35,12 @@ class Graph {
 
   inline bool IsNeighbor(Vertex u, Vertex v) const;
 
+  inline size_t GetParentStartOffset(Vertex v) const;
+  inline size_t GetParentEndOffset(Vertex v) const;
+  inline Vertex GetParent(size_t offset) const;
+  inline bool IsParent(Vertex u, Vertex v) const;
+  inline bool IsChild(Vertex u, Vertex v) const;
+
   Graph *BuildDAG() const;
 
 
@@ -53,6 +59,9 @@ class Graph {
 
   std::vector<Label> label_;
   std::vector<Vertex> adj_array_;
+
+  std::vector<size_t> start_offset_par_;
+  std::vector<Vertex> par_array_;
 
   Label max_label_;
 };
@@ -197,5 +206,34 @@ inline bool Graph::IsNeighbor(Vertex u, Vertex v) const {
   return offset >= GetNeighborStartOffset(u, GetLabel(v)) &&
          offset < GetNeighborEndOffset(u, GetLabel(v)) && *it == v;
 }
+
+inline size_t Graph::GetParentStartOffset(Vertex v) const {
+  return start_offset_par_[v];
+}
+
+inline size_t Graph::GetParentEndOffset(Vertex v) const {
+  return start_offset_par_[v + 1];
+}
+
+inline Vertex Graph::GetParent(size_t offset) const {
+  return par_array_[offset];
+}
+
+inline bool Graph::IsParent(Vertex u, Vertex v) const {
+  for (size_t i = GetParentStartOffset(v); i < GetParentEndOffset(v); i++) {
+    if (GetParent(i) == u)
+      return true;
+  }
+  return false;
+}
+
+inline bool Graph::IsChild(Vertex u, Vertex v) const {
+  for (size_t i = GetNeighborStartOffset(v); i < GetNeighborEndOffset(v); i++) {
+    if (GetNeighbor(i) == u)
+      return true;
+  }
+  return false;
+}
+
 
 #endif  // GRAPH_H_

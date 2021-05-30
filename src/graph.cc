@@ -181,6 +181,7 @@ bool isDAG(Vertex v, std::vector<std::vector<Vertex>> &adj_list){
 
 Graph *Graph::BuildDAG() const {
   std::vector<std::vector<Vertex>> adj_list(num_vertices_);
+  std::vector<std::vector<Vertex>> par_list(num_vertices_);
 
   std::set<Vertex> visited;
   std::list<Vertex> toVisit;
@@ -200,6 +201,7 @@ Graph *Graph::BuildDAG() const {
       Vertex u = adj_array_[i];
       if (visited.find(u) != visited.end()) {
         adj_list[u].push_back(v);
+        par_list[v].push_back(u);
         count_edges += 1;
       }
       else if(std::find(toVisit.begin(), toVisit.end(), u) == toVisit.end())
@@ -270,8 +272,26 @@ Graph *Graph::BuildDAG() const {
     std::copy(neighbors.begin(), neighbors.end(),
               result->adj_array_.begin() + result->start_offset_[i]);
   }  
+  
+  // fill par array
+  result->start_offset_par_.resize(num_vertices_ + 1);
+  result->par_array_.resize(num_edges_);
+  for (size_t i = 0; i < par_list.size(); i++) {
+    auto &neighbors = par_list[i];
 
-  /* CORRECTNESS CHECK */
+    // fill start_offset_par
+    result->start_offset_par_[i+1]
+      = result->start_offset_par_[i] + neighbors.size();
+
+    // if no outgoing edge, done
+    if(!neighbors.size()) continue;
+
+    // fill par_array_
+    std::copy(neighbors.begin(), neighbors.end(),
+              result->par_array_.begin() + result->start_offset_par_[i]);
+  }  
+
+  // /* CORRECTNESS CHECK */
 
   // assert(count_edges == num_edges_ && "Some edges are lost");
   // assert(isDAG(0, adj_list) && "Not a DAG");
@@ -286,6 +306,13 @@ Graph *Graph::BuildDAG() const {
   //     for (size_t idx = result->GetNeighborStartOffset(i, l); idx < result->GetNeighborEndOffset(i, l); idx++) {
   //       assert(result->GetLabel(result->adj_array_[idx]) == l);
   //     }
+  //   }
+  // }
+
+  // for (size_t v1 = 0; v1 < num_vertices_; v1++) {
+  //   for (size_t v2 = v1; v2 < num_vertices_; v2++) {
+  //     if (result->IsChild(v1, v2))
+  //       assert(result->IsParent(v2, v1));
   //   }
   // }
 
