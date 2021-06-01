@@ -4,6 +4,7 @@
  */
 #include "backtrack.h"
 #include <cassert>
+#include <ctime>
 
 using namespace std;
 
@@ -30,6 +31,9 @@ void checkMatch(const Graph &data, const Graph &query, const map<Vertex, Vertex>
 
 void Backtrack::PrintAllMatches(const Graph &data, const Graph &query,
                                 const CandidateSet &cs) {
+  clock_t start = clock();
+  int count = 0;
+  
   printf("t %lu\n", query.GetNumVertices());
 
   // query -> DAG
@@ -97,7 +101,13 @@ void Backtrack::PrintAllMatches(const Graph &data, const Graph &query,
       for (size_t i = 0; i < numVertices; i++)
         printf(" %d", uvmatch[i]);
       printf("\n");
-
+      
+      count++;
+      if (count == 100000) {
+        printf("count: %d, time: %ld\n", count, clock() - start);
+        return;
+      }
+      
       // // CHECK MATCH
       // checkMatch(data, query, uvmatch);
 
