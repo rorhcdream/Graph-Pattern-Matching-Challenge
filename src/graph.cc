@@ -188,7 +188,8 @@ Graph *Graph::BuildDAG() const {
   size_t count_edges = 0;
 
   // build adj_list by BFS
-  toVisit.push_back(0);
+  Vertex root = 0;
+  toVisit.push_back(root);
   while (!toVisit.empty()) {
     Vertex v = toVisit.front();
     toVisit.pop_front();
