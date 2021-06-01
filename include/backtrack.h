@@ -9,6 +9,10 @@
 #include "candidate_set.h"
 #include "common.h"
 #include "graph.h"
+#include <vector>
+#include <queue>
+#include <functional>
+#include <map>
 
 class Backtrack {
  public:
