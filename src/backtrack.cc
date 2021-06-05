@@ -52,6 +52,8 @@ void Backtrack::PrintAllMatches(const Graph &data, const Graph &query,
   vector<int> idx(numVertices+1, 0);
   map<Vertex, Vertex> uvmatch;
   set<Vertex> matchedV;
+
+  // set<string> found;
   
   // start = root
   Vertex root = 0;
@@ -97,6 +99,13 @@ void Backtrack::PrintAllMatches(const Graph &data, const Graph &query,
     if (level == (long)numVertices) {
       // assert (extendNext.size() == 0 && "extend next size should be 0");
       
+      // // DUPLICATE EMBEDDING CHECK
+      // string result = "a";
+      // for (size_t i = 0; i < numVertices; i++)
+      //   result += " " + to_string(uvmatch[i]);
+      // result += "\n";
+      // assert (!found.insert(result).second && "already inserted");
+
       printf("a");
       for (size_t i = 0; i < numVertices; i++)
         printf(" %d", uvmatch[i]);
@@ -108,7 +117,7 @@ void Backtrack::PrintAllMatches(const Graph &data, const Graph &query,
         return;
       }
       
-      // // CHECK MATCH
+      // // CORRECT EMBEDDING CHECK
       // checkMatch(data, query, uvmatch);
 
       idx[level]++;
