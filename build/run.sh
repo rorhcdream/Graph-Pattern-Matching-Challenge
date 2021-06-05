@@ -10,7 +10,11 @@ for d in ../data/* ; do
 		if [[ "$qname" =~ "$dname" ]]; then
 			echo "	query $qname"
 			c="../candidate_set/$qname.cs"
-			./main/program $d $q $c > ../output/$qname.out
+			timeout 60s ./main/program $d $q $c > ../output/$qname.out
+			exit_status=$?
+			if [[ $exit_status -eq 124 ]]; then
+			    echo "time out!"
+			fi
 		fi
 	done
 done
