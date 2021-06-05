@@ -11,16 +11,21 @@ using namespace std;
 Backtrack::Backtrack() {}
 Backtrack::~Backtrack() {}
 
-void checkMatch(const Graph &data, const Graph &query, const map<Vertex, Vertex> &uvmatch){
-  assert (uvmatch.size() == query.GetNumVertices() && "uvmatch is weird");
+/**
+ * @brief Checks if a match is a correct embedding query->data.
+ *
+ * @return Assertions succeed if correct.
+ */
+void checkMatch(const Graph &data, const Graph &query, const map<Vertex, Vertex> &uv_map){
+  assert (uv_map.size() == query.GetNumVertices() && "uv_map is weird");
   
   Vertex u1, v1, u2, v2;
-  for (auto it1 = uvmatch.begin(), end = uvmatch.end(); it1 != end;){
+  for (auto it1 = uv_map.begin(), end = uv_map.end(); it1 != end;){
     u1 = it1->first; v1 = it1->second;
 
     assert (query.GetLabel(u1) == data.GetLabel(v1) && "label is different");
 
-    for (auto it2 = ++it1, end = uvmatch.end(); it2 != end; ++it2){
+    for (auto it2 = ++it1, end = uv_map.end(); it2 != end; ++it2){
       
       u2 = it2->first; v2 = it2->second;
       assert (!(query.IsNeighbor(u1, u2) && !data.IsNeighbor(v1, v2)) && "lost edge");
@@ -29,55 +34,77 @@ void checkMatch(const Graph &data, const Graph &query, const map<Vertex, Vertex>
   }
 }
 
+/**
+ * @brief Performs backtracking embedding search and produces the output file.
+ *
+ * @return void
+ */
 void Backtrack::PrintAllMatches(const Graph &data, const Graph &query,
                                 const CandidateSet &cs) {
-  clock_t start = clock();
-  int count = 0;
+  /* Unused */
+  // clock_t start = clock();
+  // int count = 0;
   
+  // first output line
   printf("t %lu\n", query.GetNumVertices());
 
   // query -> DAG
-  Graph *DAG = query.BuildDAG();
+  Graph *DAG = query.BuildDAG(cs);
   
+  // start matching
   const size_t numVertices = DAG->GetNumVertices();
   
-  vector<vector<Vertex>> backtrack(numVertices+1);    // 각 레벨에서 백트래킹을 위해 앞으로 탐색해야 할 v들을 저장
-  set<tuple<int, Vertex, vector<Vertex>>> extendNext;   // 현재 확장할 수 있는 u 목록을 저장
-  vector<vector<tuple<int, Vertex, vector<Vertex>>>> extendNextAdded(numVertices+1);  // 각 레벨에서 extendNext에 추가한 u 목록을 저장
-  vector<tuple<int, Vertex, vector<Vertex>>> extendNextRemoved(numVertices+1);  // 레벨을 올릴 때 extendNext에서 지운 u를 저장
-  vector<Vertex> matchedVInLevel(numVertices+1);  // 해당 레벨에서 매치한 v 저장
-  bool levelDown = false;   // 레벨이 내려온 상태인지 여부 저장
+  // Denote a vertex in query 'u', and a vertex in cs 'v'
 
-  vector<Vertex> uvector(numVertices+1);
+  // list of v we need to visit at each level
+  vector<vector<Vertex>> backtrack(numVertices+1);
+  // set of currently extendable u and its possible match v
+  set<tuple<int, Vertex, vector<Vertex>>> extendNext;
+  // stack of add diff for extendNext
+  vector<vector<tuple<int, Vertex, vector<Vertex>>>> extendNextAdded(numVertices+1);
+  // stack of remove diff for extendNext
+  vector<tuple<int, Vertex, vector<Vertex>>> extendNextRemoved(numVertices+1);
+  // record of u matched at each level
+  vector<Vertex> u_vector(numVertices+1);
+  // record of v matched at each level
+  vector<Vertex> v_vector(numVertices+1);
+  // index of v to visit next at each level
   vector<int> idx(numVertices+1, 0);
-  map<Vertex, Vertex> uvmatch;
-  set<Vertex> matchedV;
-
-  // set<string> found;
+  // map of matched pairs <u, v>
+  map<Vertex, Vertex> uv_map;
+  // set of v currently matched
+  set<Vertex> v_set;
+  // indicate if we got up or down a level
+  bool levelDown = false;  
+  // set of result string "a ...\n"
+  set<string> found;
   
-  // start = root
-  Vertex root = 0;
+
+  // visit root of DAG at level 1
+  Vertex root = DAG->GetRoot();
   for (size_t ci = 0; ci < cs.GetCandidateSize(root); ci++)
     backtrack[1].push_back(cs.GetCandidate(root, ci));
-  uvector[1] = root;
+  u_vector[1] = root;
   
-  long level = 1; // currently (level-1) vertices matched
+  // currently (level-1) vertices matched
+  long level = 1;
   while (level != 0) {
     if (levelDown) {
       levelDown = false;
       extendNext.insert(extendNextRemoved[level]);
-      matchedV.erase(matchedVInLevel[level]);
+      v_set.erase(v_vector[level]);
     }
+
     for (auto it = extendNextAdded[level].begin(); it != extendNextAdded[level].end(); it++) {
       extendNext.erase(*it);
     }
 
-    Vertex u = uvector[level];
+    Vertex u = u_vector[level];
 
     // current level search done
     if (idx[level] >= (long)backtrack[level].size()) {
       levelDown = true;
-      uvmatch.erase(u);
+      uv_map.erase(u);
       level--;
       idx[level]++;
       continue;
@@ -86,13 +113,13 @@ void Backtrack::PrintAllMatches(const Graph &data, const Graph &query,
     Vertex v = backtrack[level][idx[level]];
 
     // v already matched
-    if (matchedV.find(v) != matchedV.end()) {
+    if (v_set.find(v) != v_set.end()) {
       idx[level]++;
       continue;
     }
 
-    uvmatch[u] = v;
-    matchedV.insert(v);
+    uv_map[u] = v;
+    v_set.insert(v);
     extendNextAdded[level].clear();  
 
     // if all u matched, print result
@@ -102,30 +129,32 @@ void Backtrack::PrintAllMatches(const Graph &data, const Graph &query,
       // // DUPLICATE EMBEDDING CHECK
       // string result = "a";
       // for (size_t i = 0; i < numVertices; i++)
-      //   result += " " + to_string(uvmatch[i]);
+      //   result += " " + to_string(uv_map[i]);
       // result += "\n";
-      // assert (!found.insert(result).second && "already inserted");
+      // bool inserted = found.insert(result).second;
+      // assert (inserted && "already inserted");
 
       printf("a");
       for (size_t i = 0; i < numVertices; i++)
-        printf(" %d", uvmatch[i]);
+        printf(" %d", uv_map[i]);
       printf("\n");
       
-      count++;
-      if (count == 100000) {
-        printf("count: %d, time: %ld\n", count, clock() - start);
-        return;
-      }
+      // count++;
+      // if (count == 100000) {
+      //   printf("count: %d, time: %ld\n", count, clock() - start);
+      //   return;
+      // }
       
       // // CORRECT EMBEDDING CHECK
-      // checkMatch(data, query, uvmatch);
+      // checkMatch(data, query, uv_map);
 
-      idx[level]++;
-      matchedV.erase(v);
-      continue;
+      // idx[level]++;
+      // v_set.erase(v);
+      // continue;
     }
 
     // for all u's extendable children cu, add it to extendNext
+    bool cu_extendable = true;
     for (size_t i = DAG->GetNeighborStartOffset(u); i < DAG->GetNeighborEndOffset(u); i++) {
       Vertex cu = DAG->GetNeighbor(i);
       vector<Vertex> candidates;
@@ -134,7 +163,7 @@ void Backtrack::PrintAllMatches(const Graph &data, const Graph &query,
       bool hasAllParentMatched = true;
       for (size_t pi = DAG->GetParentStartOffset(cu); pi < DAG->GetParentEndOffset(cu); pi++) {
         Vertex p_cu = DAG->GetParent(pi);
-        if (uvmatch.find(p_cu) == uvmatch.end()) {
+        if (uv_map.find(p_cu) == uv_map.end()) {
           hasAllParentMatched = false;
           break;
         }
@@ -145,21 +174,23 @@ void Backtrack::PrintAllMatches(const Graph &data, const Graph &query,
       // find all possible v of cu, add it to extendNext
       for (size_t ci = 0; ci < cs.GetCandidateSize(cu); ci++) {
         Vertex cv = cs.GetCandidate(cu, ci);
-        bool extendable = true;
-        for (size_t pi = DAG->GetParentStartOffset(cu); pi < DAG->GetParentEndOffset(cu); pi++) {
-          Vertex p_cu = DAG->GetParent(pi);
-          if (!data.IsNeighbor(uvmatch[p_cu], cv)) {
-            extendable = false;
-            break;
+        bool cv_extendable = true;
+        if (v_set.find(cv) == v_set.end()) {
+          for (size_t pi = DAG->GetParentStartOffset(cu); pi < DAG->GetParentEndOffset(cu); pi++) {
+            Vertex p_cu = DAG->GetParent(pi);
+            if (!data.IsNeighbor(uv_map[p_cu], cv)) { 
+              cv_extendable = false;
+              break;
+            }
           }
+          if (cv_extendable)
+            candidates.push_back(cv);
         }
-        if (extendable)
-          candidates.push_back(cv);
       }
       // there is a cu that cannot be matched
       if (candidates.size() == 0) {
-        idx[level]++;
-        matchedV.erase(v);
+        cu_extendable = false;
+        break;
       }
       // for (auto it = extendNext.begin(); it != extendNext.end(); it++) {
       //   assert (get<1>(*it) != cu && "cu");
@@ -171,22 +202,22 @@ void Backtrack::PrintAllMatches(const Graph &data, const Graph &query,
     }
     
     // if not extendable, proceed in same level
-    if (extendNext.size() == 0) {
+    if (!cu_extendable || extendNext.size() == 0) {
       idx[level]++;
-      matchedV.erase(v);
+      v_set.erase(v);
     }
     // if extendable, go to next level
     else {
       auto p = *extendNext.begin();
       extendNext.erase(p);
       extendNextRemoved[level] = p;
-      matchedVInLevel[level] = v;
+      v_vector[level] = v;
       Vertex nextu = get<1>(p);
       vector<Vertex> candidates = get<2>(p);
       
       level++;
       idx[level] = 0;
-      uvector[level] = nextu;
+      u_vector[level] = nextu;
       backtrack[level] = candidates;
       extendNextAdded[level].clear();
     }

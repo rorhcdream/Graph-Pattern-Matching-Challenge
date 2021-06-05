@@ -7,6 +7,7 @@
 #define GRAPH_H_
 
 #include "common.h"
+#include "candidate_set.h"
 
 class Graph {
  public:
@@ -40,9 +41,10 @@ class Graph {
   inline Vertex GetParent(size_t offset) const;
   inline bool IsParent(Vertex u, Vertex v) const;
   inline bool IsChild(Vertex u, Vertex v) const;
+  inline Vertex GetRoot() const;
 
-  Graph *BuildDAG() const;
-
+  Graph *BuildDAG(const CandidateSet &cs) const;
+  
 
  private:
   explicit Graph();
@@ -64,6 +66,8 @@ class Graph {
   std::vector<Vertex> par_array_;
 
   Label max_label_;
+
+  Vertex root;
 };
 
 /**
@@ -235,5 +239,8 @@ inline bool Graph::IsChild(Vertex u, Vertex v) const {
   return false;
 }
 
+inline Vertex Graph::GetRoot() const {
+  return root;
+}
 
 #endif  // GRAPH_H_
